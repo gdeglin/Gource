@@ -24,6 +24,8 @@
 #include "core/settings.h"
 #include "core/regex.h"
 
+#include <vector>
+
 class GourceSettings : public SDLAppSettings {
 protected:
     void commandLineOption(const std::string& name, const std::string& value);
@@ -37,6 +39,7 @@ public:
     bool hide_usernames;
     bool hide_filenames;
     bool hide_dirnames;
+    bool hide_reponames;
     bool hide_progress;
     bool hide_bloom;
     bool hide_mouse;
@@ -51,6 +54,7 @@ public:
     std::string load_config;
     std::string save_config;
     std::string path;
+    std::vector<std::string> paths;
     bool default_path;
 
     std::string logo;
@@ -179,6 +183,7 @@ public:
     void importGourceSettings(ConfFile& conf, ConfSection* gource_settings = 0);
 
     void help(bool extended_help=false);
+    bool hasMultiplePaths() const;
 };
 
 extern GourceSettings gGourceSettings;

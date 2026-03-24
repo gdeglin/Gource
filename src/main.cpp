@@ -90,18 +90,25 @@ int main(int argc, char *argv[]) {
             gGourceSettings.parseArgs(argc, argv, conf);
         }
 
-        //set path
+        // set path(s)
         if(!files.empty()) {
-            std::string path = files[files.size()-1];
-
             ConfSectionList* sectionlist = conf.getSections("gource");
 
             if(sectionlist!=0) {
                 for(ConfSectionList::iterator sit = sectionlist->begin(); sit != sectionlist->end(); sit++) {
-                    (*sit)->setEntry("path", path);
+                    (*sit)->setEntry("path", files.front());
+
+                    for(size_t i=1; i<files.size(); i++) {
+                        (*sit)->addEntry("path", files[i]);
+                    }
                 }
             } else {
-                conf.setEntry("gource", "path", path);
+                ConfSection* section = conf.addSection("gource");
+                section->setEntry("path", files.front());
+
+                for(size_t i=1; i<files.size(); i++) {
+                    section->addEntry("path", files[i]);
+                }
             }
         }
 

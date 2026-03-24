@@ -31,6 +31,33 @@ int  gGourceFileInnerLoops = 0;
 
 std::map<std::string, RDirNode*> gGourceDirMap;
 
+namespace {
+bool shouldDrawDirEdge(const RDirNode* node) {
+    RDirNode* parent = node->getParent();
+    if(parent == 0) return false;
+
+    bool hide_multi_repo_root = gGourceSettings.hasMultiplePaths() && parent->getParent() == 0;
+    if(hide_multi_repo_root) return false;
+
+    return !gGourceSettings.hide_root || parent->getParent() != 0;
+}
+
+bool isRepositoryNode(const RDirNode* node) {
+    RDirNode* parent = node->getParent();
+    return gGourceSettings.hasMultiplePaths() && parent != 0 && parent->getParent() == 0;
+}
+
+std::string multiRepoRootPath(const std::string& path) {
+    if(!gGourceSettings.hasMultiplePaths()) return path;
+    if(path.size() <= 1 || path[0] != '/') return path;
+
+    size_t second_slash = path.find('/', 1);
+    if(second_slash == std::string::npos) return path;
+
+    return path.substr(0, second_slash + 1);
+}
+}
+
 RDirNode::RDirNode(RDirNode* parent, const std::string & abspath) {
 
     changePath(abspath);
@@ -399,8 +426,9 @@ bool RDirNode::addFile(RFile* f) {
     //simply change path of node and add this to it
     if(   parent==0 && abspath == "/"
        && f->path.compare(abspath) != 0 && noFiles() && noDirs()) {
-        debugLog("modifying root path to %s", f->path.c_str());
-        changePath(f->path);
+        std::string root_path = multiRepoRootPath(f->path);
+        debugLog("modifying root path to %s", root_path.c_str());
+        changePath(root_path);
     }
 
     //is this dir - add to this node
@@ -929,8 +957,14 @@ void RDirNode::logic(float dt) {
 
 void RDirNode::drawDirName(FXFont& dirfont) const{
     if(parent==0) return;
-    if(gGourceSettings.hide_dirnames) return;
-    if(gGourceSettings.dir_name_depth > 0 && gGourceSettings.dir_name_depth < (depth-1)) return;
+
+    bool repo_node = isRepositoryNode(this);
+    if(repo_node) {
+        if(gGourceSettings.hide_reponames) return;
+    } else {
+        if(gGourceSettings.hide_dirnames) return;
+        if(gGourceSettings.dir_name_depth > 0 && gGourceSettings.dir_name_depth < (depth-1)) return;
+    }
 
     if(!gGourceSettings.highlight_dirs && since_last_node_change > 5.0) return;
 
@@ -976,7 +1010,7 @@ void RDirNode::calcScreenPos(GLint* viewport, GLdouble* modelview, GLdouble* pro
 
 void RDirNode::drawNames(FXFont& dirfont) {
 
-    if(!gGourceSettings.hide_dirnames && isVisible()) {
+    if(isVisible()) {
         drawDirName(dirfont);
     }
 
@@ -1108,7 +1142,7 @@ const vec2 & RDirNode::getProjectedPos() const{
 
 void RDirNode::updateEdgeVBO(quadbuf& buffer) const {
 
-    if(parent!=0 && (!gGourceSettings.hide_root || parent->parent !=0)) spline.drawToVBO(buffer);
+    if(shouldDrawDirEdge(this)) spline.drawToVBO(buffer);
 
     for(std::list<RDirNode*>::const_iterator it = children.begin(); it != children.end(); it++) {
         RDirNode* child = (*it);
@@ -1121,7 +1155,7 @@ void RDirNode::updateEdgeVBO(quadbuf& buffer) const {
 
 void RDirNode::drawEdgeShadows() const{
 
-    if(parent!=0 && (!gGourceSettings.hide_root || parent->parent !=0)) spline.drawShadow();
+    if(shouldDrawDirEdge(this)) spline.drawShadow();
 
     for(std::list<RDirNode*>::const_iterator it = children.begin(); it != children.end(); it++) {
         RDirNode* child = (*it);
@@ -1135,7 +1169,7 @@ void RDirNode::drawEdgeShadows() const{
 
 void RDirNode::drawEdges() const{
 
-   if(parent!=0 && (!gGourceSettings.hide_root || parent->parent !=0)) spline.draw();
+   if(shouldDrawDirEdge(this)) spline.draw();
 
     for(std::list<RDirNode*>::const_iterator it = children.begin(); it != children.end(); it++) {
         RDirNode* child = (*it);

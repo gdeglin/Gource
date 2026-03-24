@@ -49,7 +49,7 @@ void GourceSettings::help(bool extended_help) {
 
     printf("Gource v%s\n", GOURCE_VERSION);
 
-    printf("Usage: gource [options] [path]\n");
+    printf("Usage: gource [options] [path...]\n");
     printf("\nOptions:\n");
     printf("  -h, --help                       Help\n\n");
     printf("  -WIDTHxHEIGHT, --viewport        Set viewport size\n");
@@ -143,7 +143,7 @@ if(extended_help) {
     printf("  --git-branch             Get the git log of a particular branch\n\n");
 
     printf("  --hide DISPLAY_ELEMENT   bloom,date,dirnames,files,filenames,mouse,progress,\n");
-    printf("                           root,tree,users,usernames\n\n");
+    printf("                           reponames,root,tree,users,usernames\n\n");
 
     printf("  --logo IMAGE             Logo to display in the foreground\n");
     printf("  --logo-offset XxY        Offset position of the logo\n\n");
@@ -187,12 +187,13 @@ if(extended_help) {
 
     printf("  --hash-seed SEED         Change the seed of hash function.\n\n");
 
-    printf("  --path PATH\n\n");
+    printf("  --path PATH               Add a repository, log, or config path. Repeat to merge multiple repositories into one timeline.\n\n");
 }
 
     printf("PATH may be a supported version control directory, a log file, a gource config\n");
-    printf("file, or '-' to read STDIN. If omitted, gource will attempt to generate a log\n");
-    printf("from the current directory.\n\n");
+    printf("file, or '-' to read STDIN. Supply multiple paths or repeat --path to merge\n");
+    printf("multiple repositories into one timeline. If omitted, gource will attempt to\n");
+    printf("generate a log from the current directory.\n\n");
 
     if(!extended_help) {
         printf("To see the full command line options use '-H'\n\n");
@@ -327,7 +328,7 @@ GourceSettings::GourceSettings() {
     arg_types["load-config"]        = "string";
     arg_types["save-config"]        = "string";
     arg_types["output-custom-log"]  = "string";
-    arg_types["path"]               = "string";
+    arg_types["path"]               = "multi-value";
     arg_types["log-command"]        = "string";
     arg_types["background-colour"]  = "string";
     arg_types["file-idle-time"]     = "string";
@@ -368,6 +369,7 @@ GourceSettings::GourceSettings() {
 void GourceSettings::setGourceDefaults() {
 
     path = ".";
+    paths.clear();
     default_path = true;
 
     ffp = false;
@@ -379,6 +381,7 @@ void GourceSettings::setGourceDefaults() {
     hide_usernames = false;
     hide_filenames = false;
     hide_dirnames  = false;
+    hide_reponames = false;
     hide_progress  = false;
     hide_bloom     = false;
     hide_mouse     = false;
@@ -659,6 +662,7 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
                && hide_field != "usernames"
                && hide_field != "filenames"
                && hide_field != "dirnames"
+               && hide_field != "reponames"
                && hide_field != "bloom"
                && hide_field != "progress"
                && hide_field != "mouse"
@@ -692,6 +696,7 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
             else if(hidestr == "usernames") hide_usernames = true;
             else if(hidestr == "filenames") hide_filenames = true;
             else if(hidestr == "dirnames")  hide_dirnames  = true;
+            else if(hidestr == "reponames") hide_reponames = true;
             else if(hidestr == "bloom")     hide_bloom     = true;
             else if(hidestr == "progress")  hide_progress  = true;
             else if(hidestr == "root")      hide_root      = true;
@@ -1626,42 +1631,66 @@ void GourceSettings::importGourceSettings(ConfFile& conffile, ConfSection* gourc
         }
     }
 
-    //validate path
-    if(gource_settings->hasValue("path")) {
-        path = gource_settings->getString("path");
+    // validate path(s)
+    ConfEntryList* path_entries = gource_settings->getEntries("path");
+    paths.clear();
+
+    if(path_entries != 0 && !path_entries->empty()) {
         default_path = false;
-    }
 
-    if(path == "-") {
+        for(ConfEntryList::iterator it = path_entries->begin(); it != path_entries->end(); it++) {
+            ConfEntry* path_entry = *it;
 
-        if(log_format.size() == 0) {
-            throw ConfFileException("log-format required when reading from STDIN", "", 0);
-        }
+            if(!path_entry->hasValue()) {
+                conffile.entryException(path_entry, "specify path");
+            }
+
+            std::string resolved_path = path_entry->getString();
+
+            if(resolved_path == "-") {
+                if(path_entries->size() > 1) {
+                    conffile.entryException(path_entry, "STDIN cannot be combined with other paths");
+                }
+
+                if(log_format.size() == 0) {
+                    throw ConfFileException("log-format required when reading from STDIN", "", 0);
+                }
 
 #ifdef _WIN32
-        DWORD available_bytes;
-        HANDLE stdin_handle = GetStdHandle(STD_INPUT_HANDLE);
+                DWORD available_bytes;
+                HANDLE stdin_handle = GetStdHandle(STD_INPUT_HANDLE);
 
-        while(PeekNamedPipe(stdin_handle, 0, 0, 0,
-            &available_bytes, 0) && available_bytes==0 && !std::cin.fail()) {
-            SDL_Delay(100);
-        }
+                while(PeekNamedPipe(stdin_handle, 0, 0, 0,
+                    &available_bytes, 0) && available_bytes==0 && !std::cin.fail()) {
+                    SDL_Delay(100);
+                }
 #else
-        while(std::cin.peek() == EOF && !std::cin.fail()) SDL_Delay(100);
+                while(std::cin.peek() == EOF && !std::cin.fail()) SDL_Delay(100);
 #endif
 
-        std::cin.clear();
+                std::cin.clear();
+            } else if(!resolved_path.empty() && resolved_path != ".") {
 
-    } else if(!path.empty() && path != ".") {
+                if(resolved_path[resolved_path.size()-1] == '\\' || resolved_path[resolved_path.size()-1] == '/') {
+                    resolved_path.resize(resolved_path.size()-1);
+                }
 
-        //remove trailing slash
-        if(path[path.size()-1] == '\\' || path[path.size()-1] == '/') {
-            path.resize(path.size()-1);
-        }
+                if(!boost::filesystem::exists(resolved_path)) {
+                    throw ConfFileException(str(boost::format("'%s' does not appear to be a valid file or directory") % resolved_path), "", 0);
+                }
+            }
 
-        // check path exists
-        if(!boost::filesystem::exists(path)) {
-            throw ConfFileException(str(boost::format("'%s' does not appear to be a valid file or directory") % path), "", 0);
+            paths.push_back(resolved_path);
         }
     }
+
+    if(paths.empty()) {
+        paths.push_back(path);
+    }
+
+    path = paths.front();
+}
+
+bool GourceSettings::hasMultiplePaths() const {
+    return paths.size() > 1;
 }

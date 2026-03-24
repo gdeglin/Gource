@@ -66,24 +66,37 @@ struct ContentView: View {
     }
 
     var repoSelector: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "folder.fill")
-                .foregroundColor(.secondary)
-
-            if config.repoPath.isEmpty {
-                Text("Select Repository…")
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 8) {
+                Image(systemName: "folder.fill")
                     .foregroundColor(.secondary)
-            } else {
-                Text(shortenPath(config.repoPath))
+
+                Text(repoSelectionSummary())
+                    .foregroundColor(config.repoPaths.isEmpty ? .secondary : .primary)
                     .lineLimit(1)
                     .truncationMode(.middle)
+
+                Button {
+                    chooseRepos()
+                } label: {
+                    Text("Browse")
+                        .font(.caption)
+                }
+
+                if !config.repoPaths.isEmpty {
+                    Button("Clear") {
+                        config.repoPaths.removeAll()
+                    }
+                    .font(.caption)
+                }
             }
 
-            Button {
-                chooseRepo()
-            } label: {
-                Text("Browse")
-                    .font(.caption)
+            if config.repoPaths.count > 1 {
+                Text(selectedRepoNames())
+                    .font(.caption2)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .truncationMode(.middle)
             }
         }
         .padding(.horizontal, 10)
@@ -524,6 +537,7 @@ struct ContentView: View {
                     Toggle("Bloom", isOn: $config.hideBloom)
                     Toggle("Date", isOn: $config.hideDate)
                     Toggle("Dir Names", isOn: $config.hideDirnames)
+                    Toggle("Repo Names", isOn: $config.hideReponames)
                     Toggle("Files", isOn: $config.hideFiles)
                     Toggle("Filenames", isOn: $config.hideFilenames)
                     Toggle("Mouse", isOn: $config.hideMouse)
@@ -898,7 +912,7 @@ struct ContentView: View {
             }
             .keyboardShortcut(.return, modifiers: .command)
             .buttonStyle(.borderedProminent)
-            .disabled(config.repoPath.isEmpty)
+            .disabled(config.repoPaths.isEmpty)
         }
         .padding(.horizontal, 16)
         .padding(.vertical, 10)
@@ -963,16 +977,33 @@ struct ContentView: View {
         return "…/" + comps.suffix(2).joined(separator: "/")
     }
 
+    func repoSelectionSummary() -> String {
+        switch config.repoPaths.count {
+        case 0:
+            return "Select Repositories…"
+        case 1:
+            return shortenPath(config.repoPaths[0])
+        default:
+            return "\(config.repoPaths.count) repositories selected"
+        }
+    }
+
+    func selectedRepoNames() -> String {
+        config.repoPaths
+            .map { URL(fileURLWithPath: $0).lastPathComponent }
+            .joined(separator: ", ")
+    }
+
     // MARK: - Actions
 
-    func chooseRepo() {
+    func chooseRepos() {
         let panel = NSOpenPanel()
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
-        panel.allowsMultipleSelection = false
-        panel.message = "Select a Git repository"
-        if panel.runModal() == .OK, let url = panel.url {
-            config.repoPath = url.path
+        panel.allowsMultipleSelection = true
+        panel.message = "Select one or more repositories"
+        if panel.runModal() == .OK {
+            config.repoPaths = panel.urls.map(\.path)
         }
     }
 
@@ -985,7 +1016,8 @@ struct ContentView: View {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: args[0])
         process.arguments = Array(args.dropFirst())
-        process.currentDirectoryURL = URL(fileURLWithPath: config.repoPath.isEmpty ? FileManager.default.currentDirectoryPath : config.repoPath)
+        let executableDirectory = URL(fileURLWithPath: args[0]).deletingLastPathComponent()
+        process.currentDirectoryURL = executableDirectory
 
         let pipe = Pipe()
         process.standardError = pipe
@@ -1027,8 +1059,7 @@ struct ContentView: View {
     }
 
     func resetConfig() {
-        let path = config.repoPath
-        let newConfig = GourceConfig()
+        let repoPaths = config.repoPaths
         // Copy all published properties... just replace the object
         // Actually, since it's @StateObject, let's reset fields
         config.viewportWidth = 1280; config.viewportHeight = 720
@@ -1062,7 +1093,7 @@ struct ContentView: View {
         config.dirFontSize = 12; config.userFontSize = 12
         config.fontColor = .white
         config.hideBloom = false; config.hideDate = false
-        config.hideDirnames = false; config.hideFiles = false
+        config.hideDirnames = false; config.hideReponames = false; config.hideFiles = false
         config.hideFilenames = false; config.hideMouse = false
         config.hideProgress = false; config.hideRoot = false
         config.hideTree = false; config.hideUsers = false
@@ -1079,7 +1110,7 @@ struct ContentView: View {
         config.disableInput = false; config.useHashSeed = false
         config.useHighlightColour = false; config.useSelectionColour = false
         config.useFilenameColour = false; config.useDirColour = false
-        config.repoPath = path
+        config.repoPaths = repoPaths
     }
 
     func saveConfig() {
@@ -1093,6 +1124,7 @@ struct ContentView: View {
             let process = Process()
             process.executableURL = URL(fileURLWithPath: finalArgs[0])
             process.arguments = Array(finalArgs.dropFirst())
+            process.currentDirectoryURL = URL(fileURLWithPath: finalArgs[0]).deletingLastPathComponent()
             try? process.run()
             process.waitUntilExit()
         }

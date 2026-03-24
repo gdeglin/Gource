@@ -46,12 +46,15 @@ class RLogMill {
     int logmill_thread_state;
 
     std::string logfile;
+    std::string merged_logfile;
     RCommitLog* clog;
 
     std::string error;
 
     bool findRepository(boost::filesystem::path& dir, std::string& log_format);
+    RCommitLog* fetchLog(const std::string& path, std::string& log_format, std::string* resolved_path = 0);
     RCommitLog* fetchLog(std::string& log_format);
+    RCommitLog* fetchMergedLog(std::string& log_format);
 public:
     RLogMill(const std::string& logfile);
     ~RLogMill();

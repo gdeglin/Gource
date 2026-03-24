@@ -23,7 +23,7 @@ Using Gource
 ============
 
 ```
-gource [options] [path]
+gource [options] [path...]
 
 options:
 
@@ -347,9 +347,17 @@ options:
 
     --path PATH
 
+            Add a repository, log or config path.
+
+            Repeat this option, or pass multiple positional paths, to merge
+            multiple repositories into one timeline.
+
     path    Either a supported version control directory, a pre-generated log
             file (see log commands or the custom log format), a Gource conf
             file or '-' to read STDIN.
+
+            If multiple paths are supplied, Gource merges them into one
+            timeline and prefixes each repository into its own top-level tree.
 
             If path is omitted, gource will attempt to read a log from the
             current directory.
@@ -367,6 +375,12 @@ View the log of a project in the specified directory:
 
 ```
     gource my-project-dir
+```
+
+Merge multiple repositories into one timeline:
+
+```
+    gource repo-one repo-two
 ```
 
 For large projects, generating a log of the project history may take a long

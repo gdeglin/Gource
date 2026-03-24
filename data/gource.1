@@ -3,7 +3,7 @@
 Gource - a software version control visualization
 .SH SYNOPSIS
 \fIgource\fR
-[options] [path]
+[options] [path...]
 .SH DESCRIPTION
 \fIgource\fR is an OpenGL-based 3D visualisation tool for source control repositories.
 
@@ -323,6 +323,8 @@ Save a config file with the current options.
 \fBpath\fR
 Either a supported version control directory, a pre-generated log file (see log commands or the custom log format), a Gource conf file or '-' to read STDIN.
 
+Repeat \fB\-\-path\fR or supply multiple paths to merge multiple repositories into one timeline.
+
 If path is omitted, gource will attempt to read a log from the current directory.
 
 .SS Git, Bazaar, Mercurial and SVN Examples
@@ -336,6 +338,11 @@ View the log of a project in the specified directory:
 
 .ti 10
 \fIgource\fR my\-project\-dir
+
+Merge multiple repositories into one timeline:
+
+.ti 10
+\fIgource\fR repo\-one repo\-two
 
 For large projects, generating a log of the project history may take a long time. For centralized VCS like SVN, generating the log will put load on the central VCS server.
 

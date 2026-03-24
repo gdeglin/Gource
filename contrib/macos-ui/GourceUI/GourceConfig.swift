@@ -3,7 +3,7 @@ import Combine
 
 class GourceConfig: ObservableObject {
     // MARK: - Repository
-    @Published var repoPath: String = ""
+    @Published var repoPaths: [String] = []
 
     // MARK: - Display
     @Published var viewportWidth: Int = 1280
@@ -107,6 +107,7 @@ class GourceConfig: ObservableObject {
     @Published var hideBloom: Bool = false
     @Published var hideDate: Bool = false
     @Published var hideDirnames: Bool = false
+    @Published var hideReponames: Bool = false
     @Published var hideFiles: Bool = false
     @Published var hideFilenames: Bool = false
     @Published var hideMouse: Bool = false
@@ -185,8 +186,40 @@ class GourceConfig: ObservableObject {
         return String(format: "%02X%02X%02X", r, g, b)
     }
 
+    func gourceExecutablePath() -> String {
+        let fileManager = FileManager.default
+        var candidates: [String] = []
+
+        // In local development, prefer the binary from this checkout.
+        var sourceRoot = URL(fileURLWithPath: #filePath)
+        for _ in 0..<4 {
+            sourceRoot.deleteLastPathComponent()
+        }
+        candidates.append(sourceRoot.appendingPathComponent("gource").path)
+
+        var searchURL = URL(fileURLWithPath: fileManager.currentDirectoryPath)
+        for _ in 0..<6 {
+            let candidate = searchURL.appendingPathComponent("gource").path
+            if !candidates.contains(candidate) {
+                candidates.append(candidate)
+            }
+            searchURL.deleteLastPathComponent()
+        }
+
+        candidates += [
+            "/usr/local/bin/gource",
+            "/opt/homebrew/bin/gource"
+        ]
+
+        for candidate in candidates where fileManager.isExecutableFile(atPath: candidate) {
+            return candidate
+        }
+
+        return "\(fileManager.currentDirectoryPath)/gource"
+    }
+
     func buildCommand() -> [String] {
-        var args: [String] = ["/usr/local/bin/gource"]
+        var args: [String] = [gourceExecutablePath()]
 
         // Display
         args += ["--viewport", "\(viewportWidth)x\(viewportHeight)"]
@@ -286,6 +319,7 @@ class GourceConfig: ObservableObject {
         if hideBloom { hideItems.append("bloom") }
         if hideDate { hideItems.append("date") }
         if hideDirnames { hideItems.append("dirnames") }
+        if hideReponames { hideItems.append("reponames") }
         if hideFiles { hideItems.append("files") }
         if hideFilenames { hideItems.append("filenames") }
         if hideMouse { hideItems.append("mouse") }
@@ -347,7 +381,9 @@ class GourceConfig: ObservableObject {
         if useHashSeed { args += ["--hash-seed", "\(hashSeed)"] }
 
         // Path
-        if !repoPath.isEmpty { args.append(repoPath) }
+        for repoPath in repoPaths {
+            args += ["--path", repoPath]
+        }
 
         return args
     }
