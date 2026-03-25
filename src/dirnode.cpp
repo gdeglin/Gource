@@ -32,11 +32,15 @@ int  gGourceFileInnerLoops = 0;
 std::map<std::string, RDirNode*> gGourceDirMap;
 
 namespace {
+bool isSyntheticMultiRepoRoot(const RDirNode* node) {
+    return gGourceSettings.hasMultiplePaths() && node != 0 && node->getPath() == "/";
+}
+
 bool shouldDrawDirEdge(const RDirNode* node) {
     RDirNode* parent = node->getParent();
     if(parent == 0) return false;
 
-    bool hide_multi_repo_root = gGourceSettings.hasMultiplePaths() && parent->getParent() == 0;
+    bool hide_multi_repo_root = isSyntheticMultiRepoRoot(parent);
     if(hide_multi_repo_root) return false;
 
     return !gGourceSettings.hide_root || parent->getParent() != 0;
@@ -44,7 +48,7 @@ bool shouldDrawDirEdge(const RDirNode* node) {
 
 bool isRepositoryNode(const RDirNode* node) {
     RDirNode* parent = node->getParent();
-    return gGourceSettings.hasMultiplePaths() && parent != 0 && parent->getParent() == 0;
+    return isSyntheticMultiRepoRoot(parent);
 }
 
 std::string multiRepoRootPath(const std::string& path) {
