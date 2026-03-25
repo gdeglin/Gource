@@ -975,6 +975,11 @@ void RDirNode::drawDirName(FXFont& dirfont) const{
     float alpha = gGourceSettings.highlight_dirs ? 1.0 : std::max(0.0f, 5.0f - since_last_node_change) / 5.0f;
 
     vec2 label_pos = spline.getLabelPos();
+    if(repo_node) {
+        label_pos = projected_pos;
+        label_pos.x -= dirfont.getWidth(path_token) * 0.5f;
+        label_pos.y -= dirfont.getHeight();
+    }
 
     dirfont.setAlpha(alpha);
     dirfont.draw(label_pos.x, label_pos.y, path_token);
