@@ -1,6 +1,87 @@
 import SwiftUI
 import Combine
 
+enum GourceOptionHelp {
+    static let viewport = "Set the output window size in pixels."
+    static let screen = "Choose which display Gource opens on when multiple screens are connected."
+    static let multiSampling = "Enable multi-sampling to smooth jagged edges. This can reduce performance on slower GPUs."
+    static let highDPI = "Request a high DPI display so the window renders crisply on Retina screens."
+    static let frameless = "Hide the standard macOS window frame and title bar."
+    static let noVsync = "Disable vertical sync. This can increase tearing but may improve responsiveness."
+    static let transparent = "Make the background transparent when the windowing system supports it."
+    static let windowPosition = "Set the initial window position in screen coordinates."
+
+    static let cameraMode = "Overview keeps the full tree in view, while Track follows activity more closely."
+    static let crop = "Crop the viewport vertically or horizontally to fit a target video layout."
+    static let padding = "Add extra space around the repository tree in the camera view."
+    static let disableAutoRotate = "Disable automatic camera rotation while navigating the tree."
+
+    static let secondsPerDay = "Map one day of repository history to this many seconds of playback."
+    static let timeScale = "Multiply the simulation speed without changing the underlying log timestamps."
+    static let autoSkipSeconds = "Skip ahead when nothing happens for this many seconds."
+    static let elasticity = "Increase springiness in the layout so nodes move more dynamically."
+    static let realtime = "Play events at their real-world timing instead of compressing the timeline."
+    static let disableAutoSkip = "Never skip quiet periods in the history."
+    static let noTimeTravel = "Use the last seen commit time when a new commit would otherwise move the timeline backward."
+    static let authorTime = "Use the author's timestamp instead of the committer's timestamp."
+    static let startDate = "Only show history on or after this date."
+    static let stopDate = "Stop playback once this date is reached."
+    static let startPosition = "Start at a relative point in the log between 0.0 and 1.0."
+    static let stopPosition = "Stop at a relative point in the log between 0.0 and 1.0."
+    static let stopAfter = "Stop playback after this many seconds of running time."
+    static let loopDelay = "Wait this many seconds before restarting when looping is enabled."
+
+    static let backgroundImage = "Draw an image behind the visualization."
+    static let bloomMultiplier = "Adjust how much bloom is applied to bright areas."
+    static let bloomIntensity = "Adjust how bright the bloom effect appears."
+    static let title = "Show a custom title in the visualization."
+    static let dateFormat = "Format the on-screen date using strftime tokens."
+    static let showKey = "Show the file extension key in the visualization."
+    static let fontFile = "Load a custom font file for titles, labels, and usernames."
+    static let fontScale = "Scale all on-screen fonts together."
+    static let logo = "Draw a logo image in the foreground."
+    static let logoOffset = "Move the logo away from its default position."
+    static let captionFile = "Load timed captions from a caption file."
+    static let captionDuration = "How long each caption stays visible."
+    static let captionOffset = "Move captions horizontally from their default position."
+
+    static let userImageDir = "Load avatar images from this directory."
+    static let defaultUserImage = "Use this image when a user-specific avatar is missing."
+    static let fixedUserSize = "Keep user avatars at a constant size instead of scaling with activity."
+    static let colourImages = "Tint avatar images with each user's assigned colour."
+    static let userScale = "Scale the size of user avatars."
+    static let userFriction = "Change how quickly users slow down after moving."
+    static let maxUserSpeed = "Cap how fast users can travel through the tree."
+
+    static let fileIdleTime = "Keep files visible as idle for this long after their last activity."
+    static let fileIdleTimeAtEnd = "Keep files visible for extra time after the log finishes."
+    static let filenameTime = "How long filenames stay visible after file activity."
+    static let maxFiles = "Limit the number of files shown at once. Use 0 for no limit."
+    static let maxFileLag = "Limit how long files from a single commit can be staggered over time."
+    static let fileExtensions = "Show only filename extensions instead of full filenames."
+    static let fileExtensionFallback = "If a file has no extension, use the filename as the extension label."
+
+    static let highlightDirs = "Highlight the names of all directories."
+    static let highlightUsers = "Highlight the names of all users."
+    static let followUser = "Automatically keep the camera focused on a specific user."
+    static let highlightUser = "Highlight one specific user by name."
+    static let dirNameDepth = "Only draw directory names down to this tree depth."
+    static let dirNamePosition = "Move directory labels along the edge from 0.0 to 1.0."
+
+    static let userFilter = "Exclude usernames that match this regular expression."
+    static let userShowFilter = "Show only usernames that match this regular expression."
+    static let fileFilter = "Exclude file paths that match this regular expression."
+    static let fileShowFilter = "Show only file paths that match this regular expression."
+    static let gitBranch = "Generate the Git log from a specific branch."
+    static let logFormat = "Force a log parser instead of auto-detecting the repository format."
+    static let disableInput = "Disable keyboard and mouse controls in the visualization window."
+    static let hashSeed = "Change the layout hash seed to produce a different but stable arrangement."
+
+    static let outputPPM = "Write raw PPM video frames to a file or stdout for use with tools like ffmpeg."
+    static let outputFile = "Choose the PPM output path, or use '-' to write frames to stdout."
+    static let outputFramerate = "Set the frame rate used for PPM video output."
+}
+
 class GourceConfig: ObservableObject {
     // MARK: - Repository
     @Published var repoPaths: [String] = []

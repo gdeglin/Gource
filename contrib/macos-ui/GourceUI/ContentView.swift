@@ -1,5 +1,59 @@
 import SwiftUI
 
+private struct HoverTooltip: View {
+    let text: String
+
+    var body: some View {
+        Text(text)
+            .font(.caption)
+            .foregroundColor(.primary)
+            .multilineTextAlignment(.leading)
+            .fixedSize(horizontal: false, vertical: true)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .frame(maxWidth: 280, alignment: .leading)
+            .background(.regularMaterial)
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(.quaternary)
+            )
+            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .shadow(color: .black.opacity(0.12), radius: 6, y: 2)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct InstantTooltipModifier: ViewModifier {
+    let helpText: String?
+    @State private var isHovering = false
+
+    func body(content: Content) -> some View {
+        if let helpText, !helpText.isEmpty {
+            content
+                .contentShape(Rectangle())
+                .overlay(alignment: .bottomLeading) {
+                    if isHovering {
+                        HoverTooltip(text: helpText)
+                            .offset(y: 8)
+                            .transition(.opacity)
+                    }
+                }
+                .zIndex(isHovering ? 1000 : 0)
+                .onHover { hovering in
+                    isHovering = hovering
+                }
+        } else {
+            content
+        }
+    }
+}
+
+private extension View {
+    func optionHelp(_ helpText: String?) -> some View {
+        modifier(InstantTooltipModifier(helpText: helpText))
+    }
+}
+
 struct ContentView: View {
     @StateObject private var config = GourceConfig()
     @State private var isRunning = false
@@ -169,8 +223,7 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 12) {
                     HStack {
-                        Text("Resolution")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Resolution", help: GourceOptionHelp.viewport)
                         TextField("Width", value: $config.viewportWidth, format: .number)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 80)
@@ -187,8 +240,7 @@ struct ContentView: View {
                         }
                     }
                     HStack {
-                        Text("Screen")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Screen", help: GourceOptionHelp.screen)
                         Picker("", selection: $config.screenNumber) {
                             Text("Default").tag(0)
                             Text("1").tag(1)
@@ -197,6 +249,7 @@ struct ContentView: View {
                         }
                         .labelsHidden()
                         .frame(width: 100)
+                        .optionHelp(GourceOptionHelp.screen)
                         Spacer()
                     }
                 }
@@ -207,17 +260,17 @@ struct ContentView: View {
             GroupBox {
                 VStack(alignment: .leading, spacing: 8) {
                     HStack(spacing: 20) {
-                        Toggle("Fullscreen", isOn: $config.fullscreen)
-                        Toggle("High DPI", isOn: $config.highDPI)
-                        Toggle("Frameless", isOn: $config.frameless)
+                        optionToggle("Fullscreen", isOn: $config.fullscreen)
+                        optionToggle("High DPI", isOn: $config.highDPI, help: GourceOptionHelp.highDPI)
+                        optionToggle("Frameless", isOn: $config.frameless, help: GourceOptionHelp.frameless)
                     }
                     HStack(spacing: 20) {
-                        Toggle("Multi-sampling", isOn: $config.multiSampling)
-                        Toggle("No VSync", isOn: $config.noVsync)
-                        Toggle("Transparent", isOn: $config.transparent)
+                        optionToggle("Multi-sampling", isOn: $config.multiSampling, help: GourceOptionHelp.multiSampling)
+                        optionToggle("No VSync", isOn: $config.noVsync, help: GourceOptionHelp.noVsync)
+                        optionToggle("Transparent", isOn: $config.transparent, help: GourceOptionHelp.transparent)
                     }
                     HStack {
-                        Toggle("Window Position", isOn: $config.useWindowPosition)
+                        optionToggle("Window Position", isOn: $config.useWindowPosition, help: GourceOptionHelp.windowPosition)
                         if config.useWindowPosition {
                             TextField("X", value: $config.windowPositionX, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
@@ -226,6 +279,7 @@ struct ContentView: View {
                         }
                         Spacer()
                     }
+                    .optionHelp(GourceOptionHelp.windowPosition)
                 }
                 .padding(4)
             }
@@ -234,19 +288,18 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 12) {
                     HStack {
-                        Text("Mode")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Mode", help: GourceOptionHelp.cameraMode)
                         Picker("", selection: $config.cameraMode) {
                             Text("Overview").tag("overview")
                             Text("Track").tag("track")
                         }
                         .pickerStyle(.segmented)
                         .frame(width: 200)
+                        .optionHelp(GourceOptionHelp.cameraMode)
                         Spacer()
                     }
                     HStack {
-                        Text("Crop")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Crop", help: GourceOptionHelp.crop)
                         Picker("", selection: $config.crop) {
                             Text("None").tag("none")
                             Text("Vertical").tag("vertical")
@@ -254,10 +307,11 @@ struct ContentView: View {
                         }
                         .pickerStyle(.segmented)
                         .frame(width: 250)
+                        .optionHelp(GourceOptionHelp.crop)
                         Spacer()
                     }
-                    sliderRow("Padding", value: $config.padding, range: 0.5...2.0, format: "%.2f")
-                    Toggle("Disable Auto-Rotate", isOn: $config.disableAutoRotate)
+                    sliderRow("Padding", value: $config.padding, range: 0.5...2.0, format: "%.2f", help: GourceOptionHelp.padding)
+                    optionToggle("Disable Auto-Rotate", isOn: $config.disableAutoRotate, help: GourceOptionHelp.disableAutoRotate)
                 }
                 .padding(4)
             }
@@ -271,17 +325,17 @@ struct ContentView: View {
             sectionHeader("Speed")
             GroupBox {
                 VStack(spacing: 12) {
-                    sliderRow("Seconds/Day", value: $config.secondsPerDay, range: 0.1...60.0, format: "%.1f")
-                    sliderRow("Time Scale", value: $config.timeScale, range: 0.1...10.0, format: "%.2f")
-                    sliderRow("Auto-Skip (s)", value: $config.autoSkipSeconds, range: 0...30.0, format: "%.1f")
-                    sliderRow("Elasticity", value: $config.elasticity, range: 0...1.0, format: "%.2f")
+                    sliderRow("Seconds/Day", value: $config.secondsPerDay, range: 0.1...60.0, format: "%.1f", help: GourceOptionHelp.secondsPerDay)
+                    sliderRow("Time Scale", value: $config.timeScale, range: 0.1...10.0, format: "%.2f", help: GourceOptionHelp.timeScale)
+                    sliderRow("Auto-Skip (s)", value: $config.autoSkipSeconds, range: 0...30.0, format: "%.1f", help: GourceOptionHelp.autoSkipSeconds)
+                    sliderRow("Elasticity", value: $config.elasticity, range: 0...1.0, format: "%.2f", help: GourceOptionHelp.elasticity)
                     HStack(spacing: 20) {
-                        Toggle("Realtime", isOn: $config.realtime)
-                        Toggle("Disable Auto-Skip", isOn: $config.disableAutoSkip)
+                        optionToggle("Realtime", isOn: $config.realtime, help: GourceOptionHelp.realtime)
+                        optionToggle("Disable Auto-Skip", isOn: $config.disableAutoSkip, help: GourceOptionHelp.disableAutoSkip)
                     }
                     HStack(spacing: 20) {
-                        Toggle("No Time Travel", isOn: $config.noTimeTravel)
-                        Toggle("Author Time", isOn: $config.authorTime)
+                        optionToggle("No Time Travel", isOn: $config.noTimeTravel, help: GourceOptionHelp.noTimeTravel)
+                        optionToggle("Author Time", isOn: $config.authorTime, help: GourceOptionHelp.authorTime)
                     }
                 }
                 .padding(4)
@@ -291,51 +345,56 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Start Date", isOn: $config.useStartDate)
+                        optionToggle("Start Date", isOn: $config.useStartDate, help: GourceOptionHelp.startDate)
                             .frame(width: 140)
                         if config.useStartDate {
                             DatePicker("", selection: $config.startDate, displayedComponents: .date)
                                 .labelsHidden()
+                                .optionHelp(GourceOptionHelp.startDate)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Stop Date", isOn: $config.useStopDate)
+                        optionToggle("Stop Date", isOn: $config.useStopDate, help: GourceOptionHelp.stopDate)
                             .frame(width: 140)
                         if config.useStopDate {
                             DatePicker("", selection: $config.stopDate, displayedComponents: .date)
                                 .labelsHidden()
+                                .optionHelp(GourceOptionHelp.stopDate)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Start Position", isOn: $config.useStartPosition)
+                        optionToggle("Start Position", isOn: $config.useStartPosition, help: GourceOptionHelp.startPosition)
                             .frame(width: 140)
                         if config.useStartPosition {
                             Slider(value: $config.startPosition, in: 0...1)
                                 .frame(width: 150)
+                                .optionHelp(GourceOptionHelp.startPosition)
                             Text(String(format: "%.2f", config.startPosition))
                                 .monospacedDigit().frame(width: 40)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Stop Position", isOn: $config.useStopPosition)
+                        optionToggle("Stop Position", isOn: $config.useStopPosition, help: GourceOptionHelp.stopPosition)
                             .frame(width: 140)
                         if config.useStopPosition {
                             Slider(value: $config.stopPosition, in: 0...1)
                                 .frame(width: 150)
+                                .optionHelp(GourceOptionHelp.stopPosition)
                             Text(String(format: "%.2f", config.stopPosition))
                                 .monospacedDigit().frame(width: 40)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Stop After (s)", isOn: $config.useStopAtTime)
+                        optionToggle("Stop After (s)", isOn: $config.useStopAtTime, help: GourceOptionHelp.stopAfter)
                             .frame(width: 140)
                         if config.useStopAtTime {
                             TextField("", value: $config.stopAtTime, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 80)
+                                .optionHelp(GourceOptionHelp.stopAfter)
                         }
                         Spacer()
                     }
@@ -353,10 +412,10 @@ struct ContentView: View {
                     }
                     if config.loop {
                         HStack {
-                            Text("Loop Delay (s)")
-                                .frame(width: 120, alignment: .leading)
+                            rowLabel("Loop Delay (s)", width: 120, help: GourceOptionHelp.loopDelay)
                             TextField("", value: $config.loopDelaySeconds, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
+                                .optionHelp(GourceOptionHelp.loopDelay)
                             Spacer()
                         }
                     }
@@ -381,9 +440,9 @@ struct ContentView: View {
                         Spacer()
                     }
                     HStack {
-                        Toggle("Background Image", isOn: $config.useBackgroundImage)
+                        optionToggle("Background Image", isOn: $config.useBackgroundImage, help: GourceOptionHelp.backgroundImage)
                         if config.useBackgroundImage {
-                            pathField($config.backgroundImage, prompt: "Image path")
+                            pathField($config.backgroundImage, prompt: "Image path", help: GourceOptionHelp.backgroundImage)
                         }
                         Spacer()
                     }
@@ -394,8 +453,8 @@ struct ContentView: View {
             sectionHeader("Bloom")
             GroupBox {
                 VStack(spacing: 12) {
-                    sliderRow("Multiplier", value: $config.bloomMultiplier, range: 0...3.0, format: "%.2f")
-                    sliderRow("Intensity", value: $config.bloomIntensity, range: 0...1.5, format: "%.2f")
+                    sliderRow("Multiplier", value: $config.bloomMultiplier, range: 0...3.0, format: "%.2f", help: GourceOptionHelp.bloomMultiplier)
+                    sliderRow("Intensity", value: $config.bloomIntensity, range: 0...1.5, format: "%.2f", help: GourceOptionHelp.bloomIntensity)
                 }
                 .padding(4)
             }
@@ -404,25 +463,27 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Title", isOn: $config.useTitle)
+                        optionToggle("Title", isOn: $config.useTitle, help: GourceOptionHelp.title)
                             .frame(width: 100)
                         if config.useTitle {
                             TextField("Enter title", text: $config.title)
                                 .textFieldStyle(.roundedBorder)
+                                .optionHelp(GourceOptionHelp.title)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Date Format", isOn: $config.useDateFormat)
+                        optionToggle("Date Format", isOn: $config.useDateFormat, help: GourceOptionHelp.dateFormat)
                             .frame(width: 120)
                         if config.useDateFormat {
                             TextField("strftime format", text: $config.dateFormat)
                                 .textFieldStyle(.roundedBorder)
                                 .frame(width: 200)
+                                .optionHelp(GourceOptionHelp.dateFormat)
                         }
                         Spacer()
                     }
-                    Toggle("Show File Extension Key", isOn: $config.showKey)
+                    optionToggle("Show File Extension Key", isOn: $config.showKey, help: GourceOptionHelp.showKey)
                 }
                 .padding(4)
             }
@@ -431,13 +492,13 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Custom Font", isOn: $config.useFontFile)
+                        optionToggle("Custom Font", isOn: $config.useFontFile, help: GourceOptionHelp.fontFile)
                         if config.useFontFile {
-                            pathField($config.fontFile, prompt: "Font path")
+                            pathField($config.fontFile, prompt: "Font path", help: GourceOptionHelp.fontFile)
                         }
                         Spacer()
                     }
-                    sliderRow("Font Scale", value: $config.fontScale, range: 0.5...3.0, format: "%.2f")
+                    sliderRow("Font Scale", value: $config.fontScale, range: 0.5...3.0, format: "%.2f", help: GourceOptionHelp.fontScale)
                     HStack(spacing: 16) {
                         numField("Date/Title", value: $config.fontSize)
                         numField("Files", value: $config.fileFontSize)
@@ -470,20 +531,21 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Logo", isOn: $config.useLogo)
+                        optionToggle("Logo", isOn: $config.useLogo, help: GourceOptionHelp.logo)
                         if config.useLogo {
-                            pathField($config.logo, prompt: "Logo image path")
+                            pathField($config.logo, prompt: "Logo image path", help: GourceOptionHelp.logo)
                         }
                         Spacer()
                     }
                     if config.useLogo {
                         HStack {
-                            Text("Offset")
-                                .frame(width: 60, alignment: .leading)
+                            rowLabel("Offset", width: 60, help: GourceOptionHelp.logoOffset)
                             TextField("X", value: $config.logoOffsetX, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
+                                .optionHelp(GourceOptionHelp.logoOffset)
                             TextField("Y", value: $config.logoOffsetY, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
+                                .optionHelp(GourceOptionHelp.logoOffset)
                             Spacer()
                         }
                     }
@@ -495,9 +557,9 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Caption File", isOn: $config.useCaptionFile)
+                        optionToggle("Caption File", isOn: $config.useCaptionFile, help: GourceOptionHelp.captionFile)
                         if config.useCaptionFile {
-                            pathField($config.captionFile, prompt: "Caption file path")
+                            pathField($config.captionFile, prompt: "Caption file path", help: GourceOptionHelp.captionFile)
                         }
                         Spacer()
                     }
@@ -505,11 +567,15 @@ struct ContentView: View {
                         HStack(spacing: 12) {
                             numField("Size", value: $config.captionSize)
                             Text("Duration")
+                                .optionHelp(GourceOptionHelp.captionDuration)
                             TextField("", value: $config.captionDuration, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
+                                .optionHelp(GourceOptionHelp.captionDuration)
                             Text("Offset")
+                                .optionHelp(GourceOptionHelp.captionOffset)
                             TextField("", value: $config.captionOffset, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
+                                .optionHelp(GourceOptionHelp.captionOffset)
                             Spacer()
                         }
                         HStack {
@@ -554,30 +620,30 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 12) {
                     HStack {
-                        Toggle("Avatar Directory", isOn: $config.useUserImageDir)
+                        optionToggle("Avatar Directory", isOn: $config.useUserImageDir, help: GourceOptionHelp.userImageDir)
                         if config.useUserImageDir {
-                            pathField($config.userImageDir, prompt: "Directory path")
+                            pathField($config.userImageDir, prompt: "Directory path", help: GourceOptionHelp.userImageDir)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Default Avatar", isOn: $config.useDefaultUserImage)
+                        optionToggle("Default Avatar", isOn: $config.useDefaultUserImage, help: GourceOptionHelp.defaultUserImage)
                         if config.useDefaultUserImage {
-                            pathField($config.defaultUserImage, prompt: "Image path")
+                            pathField($config.defaultUserImage, prompt: "Image path", help: GourceOptionHelp.defaultUserImage)
                         }
                         Spacer()
                     }
                     HStack(spacing: 20) {
-                        Toggle("Fixed Size", isOn: $config.fixedUserSize)
-                        Toggle("Colourize Images", isOn: $config.colourImages)
+                        optionToggle("Fixed Size", isOn: $config.fixedUserSize, help: GourceOptionHelp.fixedUserSize)
+                        optionToggle("Colourize Images", isOn: $config.colourImages, help: GourceOptionHelp.colourImages)
                     }
-                    sliderRow("User Scale", value: $config.userScale, range: 0.1...5.0, format: "%.2f")
-                    sliderRow("Friction", value: $config.userFriction, range: 0.0...2.0, format: "%.2f")
+                    sliderRow("User Scale", value: $config.userScale, range: 0.1...5.0, format: "%.2f", help: GourceOptionHelp.userScale)
+                    sliderRow("Friction", value: $config.userFriction, range: 0.0...2.0, format: "%.2f", help: GourceOptionHelp.userFriction)
                     HStack {
-                        Text("Max Speed")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Max Speed", help: GourceOptionHelp.maxUserSpeed)
                         TextField("", value: $config.maxUserSpeed, format: .number)
                             .textFieldStyle(.roundedBorder).frame(width: 80)
+                            .optionHelp(GourceOptionHelp.maxUserSpeed)
                         Spacer()
                     }
                 }
@@ -587,26 +653,26 @@ struct ContentView: View {
             sectionHeader("Files")
             GroupBox {
                 VStack(spacing: 12) {
-                    sliderRow("Idle Time", value: $config.fileIdleTime, range: 0...1000, format: "%.0f")
-                    sliderRow("Idle at End", value: $config.fileIdleTimeAtEnd, range: 0...1000, format: "%.0f")
-                    sliderRow("Name Duration", value: $config.filenameTime, range: 0...30, format: "%.1f")
+                    sliderRow("Idle Time", value: $config.fileIdleTime, range: 0...1000, format: "%.0f", help: GourceOptionHelp.fileIdleTime)
+                    sliderRow("Idle at End", value: $config.fileIdleTimeAtEnd, range: 0...1000, format: "%.0f", help: GourceOptionHelp.fileIdleTimeAtEnd)
+                    sliderRow("Name Duration", value: $config.filenameTime, range: 0...30, format: "%.1f", help: GourceOptionHelp.filenameTime)
                     HStack {
-                        Text("Max Files")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Max Files", help: GourceOptionHelp.maxFiles)
                         TextField("0 = no limit", value: $config.maxFiles, format: .number)
                             .textFieldStyle(.roundedBorder).frame(width: 100)
+                            .optionHelp(GourceOptionHelp.maxFiles)
                         Spacer()
                     }
                     HStack {
-                        Text("Max Lag (s)")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Max Lag (s)", help: GourceOptionHelp.maxFileLag)
                         TextField("", value: $config.maxFileLag, format: .number)
                             .textFieldStyle(.roundedBorder).frame(width: 80)
+                            .optionHelp(GourceOptionHelp.maxFileLag)
                         Spacer()
                     }
                     HStack(spacing: 20) {
-                        Toggle("Extensions Only", isOn: $config.fileExtensions)
-                        Toggle("Extension Fallback", isOn: $config.fileExtensionFallback)
+                        optionToggle("Extensions Only", isOn: $config.fileExtensions, help: GourceOptionHelp.fileExtensions)
+                        optionToggle("Extension Fallback", isOn: $config.fileExtensionFallback, help: GourceOptionHelp.fileExtensionFallback)
                     }
                 }
                 .padding(4)
@@ -616,24 +682,26 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack(spacing: 20) {
-                        Toggle("Highlight Dirs", isOn: $config.highlightDirs)
-                        Toggle("Highlight All Users", isOn: $config.highlightUsers)
+                        optionToggle("Highlight Dirs", isOn: $config.highlightDirs, help: GourceOptionHelp.highlightDirs)
+                        optionToggle("Highlight All Users", isOn: $config.highlightUsers, help: GourceOptionHelp.highlightUsers)
                     }
                     HStack {
-                        Toggle("Follow User", isOn: $config.useFollowUser)
+                        optionToggle("Follow User", isOn: $config.useFollowUser, help: GourceOptionHelp.followUser)
                             .frame(width: 140)
                         if config.useFollowUser {
                             TextField("Username", text: $config.followUser)
                                 .textFieldStyle(.roundedBorder).frame(width: 150)
+                                .optionHelp(GourceOptionHelp.followUser)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Highlight User", isOn: $config.useHighlightUser)
+                        optionToggle("Highlight User", isOn: $config.useHighlightUser, help: GourceOptionHelp.highlightUser)
                             .frame(width: 140)
                         if config.useHighlightUser {
                             TextField("Username", text: $config.highlightUser)
                                 .textFieldStyle(.roundedBorder).frame(width: 150)
+                                .optionHelp(GourceOptionHelp.highlightUser)
                         }
                         Spacer()
                     }
@@ -645,15 +713,16 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Name Depth", isOn: $config.useDirNameDepth)
+                        optionToggle("Name Depth", isOn: $config.useDirNameDepth, help: GourceOptionHelp.dirNameDepth)
                             .frame(width: 140)
                         if config.useDirNameDepth {
                             TextField("", value: $config.dirNameDepth, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 60)
+                                .optionHelp(GourceOptionHelp.dirNameDepth)
                         }
                         Spacer()
                     }
-                    sliderRow("Name Position", value: $config.dirNamePosition, range: 0...1.0, format: "%.2f")
+                    sliderRow("Name Position", value: $config.dirNamePosition, range: 0...1.0, format: "%.2f", help: GourceOptionHelp.dirNamePosition)
                 }
                 .padding(4)
             }
@@ -668,20 +737,22 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Exclude (regex)", isOn: $config.useUserFilter)
+                        optionToggle("Exclude (regex)", isOn: $config.useUserFilter, help: GourceOptionHelp.userFilter)
                             .frame(width: 160)
                         if config.useUserFilter {
                             TextField("e.g. bot|ci", text: $config.userFilter)
                                 .textFieldStyle(.roundedBorder)
+                                .optionHelp(GourceOptionHelp.userFilter)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Show Only (regex)", isOn: $config.useUserShowFilter)
+                        optionToggle("Show Only (regex)", isOn: $config.useUserShowFilter, help: GourceOptionHelp.userShowFilter)
                             .frame(width: 160)
                         if config.useUserShowFilter {
                             TextField("e.g. alice|bob", text: $config.userShowFilter)
                                 .textFieldStyle(.roundedBorder)
+                                .optionHelp(GourceOptionHelp.userShowFilter)
                         }
                         Spacer()
                     }
@@ -693,20 +764,22 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Exclude (regex)", isOn: $config.useFileFilter)
+                        optionToggle("Exclude (regex)", isOn: $config.useFileFilter, help: GourceOptionHelp.fileFilter)
                             .frame(width: 160)
                         if config.useFileFilter {
                             TextField("e.g. \\.lock$|node_modules", text: $config.fileFilter)
                                 .textFieldStyle(.roundedBorder)
+                                .optionHelp(GourceOptionHelp.fileFilter)
                         }
                         Spacer()
                     }
                     HStack {
-                        Toggle("Show Only (regex)", isOn: $config.useFileShowFilter)
+                        optionToggle("Show Only (regex)", isOn: $config.useFileShowFilter, help: GourceOptionHelp.fileShowFilter)
                             .frame(width: 160)
                         if config.useFileShowFilter {
                             TextField("e.g. \\.swift$|\\.py$", text: $config.fileShowFilter)
                                 .textFieldStyle(.roundedBorder)
+                                .optionHelp(GourceOptionHelp.fileShowFilter)
                         }
                         Spacer()
                     }
@@ -718,17 +791,17 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 10) {
                     HStack {
-                        Toggle("Specific Branch", isOn: $config.useGitBranch)
+                        optionToggle("Specific Branch", isOn: $config.useGitBranch, help: GourceOptionHelp.gitBranch)
                             .frame(width: 160)
                         if config.useGitBranch {
                             TextField("Branch name", text: $config.gitBranch)
                                 .textFieldStyle(.roundedBorder).frame(width: 150)
+                                .optionHelp(GourceOptionHelp.gitBranch)
                         }
                         Spacer()
                     }
                     HStack {
-                        Text("Log Format")
-                            .frame(width: 100, alignment: .leading)
+                        rowLabel("Log Format", help: GourceOptionHelp.logFormat)
                         Picker("", selection: $config.logFormat) {
                             Text("Auto-detect").tag("auto")
                             Text("Git").tag("git")
@@ -740,6 +813,7 @@ struct ContentView: View {
                         }
                         .labelsHidden()
                         .frame(width: 150)
+                        .optionHelp(GourceOptionHelp.logFormat)
                         Spacer()
                     }
                 }
@@ -749,13 +823,14 @@ struct ContentView: View {
             sectionHeader("Advanced")
             GroupBox {
                 VStack(spacing: 10) {
-                    Toggle("Disable Keyboard/Mouse Input", isOn: $config.disableInput)
+                    optionToggle("Disable Keyboard/Mouse Input", isOn: $config.disableInput, help: GourceOptionHelp.disableInput)
                     HStack {
-                        Toggle("Hash Seed", isOn: $config.useHashSeed)
+                        optionToggle("Hash Seed", isOn: $config.useHashSeed, help: GourceOptionHelp.hashSeed)
                             .frame(width: 140)
                         if config.useHashSeed {
                             TextField("", value: $config.hashSeed, format: .number)
                                 .textFieldStyle(.roundedBorder).frame(width: 100)
+                                .optionHelp(GourceOptionHelp.hashSeed)
                         }
                         Spacer()
                     }
@@ -773,19 +848,18 @@ struct ContentView: View {
             GroupBox {
                 VStack(spacing: 12) {
                     HStack {
-                        Toggle("Output PPM Stream", isOn: $config.useOutputPPM)
+                        optionToggle("Output PPM Stream", isOn: $config.useOutputPPM, help: GourceOptionHelp.outputPPM)
                         Spacer()
                     }
                     if config.useOutputPPM {
                         HStack {
-                            Text("Output File")
-                                .frame(width: 100, alignment: .leading)
+                            rowLabel("Output File", help: GourceOptionHelp.outputFile)
                             TextField("path or - for stdout", text: $config.outputPPMFile)
                                 .textFieldStyle(.roundedBorder)
+                                .optionHelp(GourceOptionHelp.outputFile)
                         }
                         HStack {
-                            Text("Framerate")
-                                .frame(width: 100, alignment: .leading)
+                            rowLabel("Framerate", help: GourceOptionHelp.outputFramerate)
                             Picker("", selection: $config.outputFramerate) {
                                 Text("25 FPS").tag(25)
                                 Text("30 FPS").tag(30)
@@ -793,6 +867,7 @@ struct ContentView: View {
                             }
                             .labelsHidden()
                             .frame(width: 120)
+                            .optionHelp(GourceOptionHelp.outputFramerate)
                             Spacer()
                         }
                     }
@@ -927,41 +1002,56 @@ struct ContentView: View {
             .foregroundColor(.primary)
     }
 
-    func sliderRow(_ label: String, value: Binding<Double>, range: ClosedRange<Double>, format: String) -> some View {
+    func rowLabel(_ title: String, width: CGFloat = 100, help: String? = nil) -> some View {
+        Text(title)
+            .frame(width: width, alignment: .leading)
+            .optionHelp(help)
+    }
+
+    func optionToggle(_ title: String, isOn: Binding<Bool>, help: String? = nil) -> some View {
+        Toggle(title, isOn: isOn)
+            .optionHelp(help)
+    }
+
+    func sliderRow(_ label: String, value: Binding<Double>, range: ClosedRange<Double>, format: String, help: String? = nil) -> some View {
         HStack {
-            Text(label)
-                .frame(width: 100, alignment: .leading)
+            rowLabel(label, help: help)
             Slider(value: value, in: range)
             Text(String(format: format, value.wrappedValue))
                 .monospacedDigit()
                 .frame(width: 50, alignment: .trailing)
         }
+        .optionHelp(help)
     }
 
-    func numField(_ label: String, value: Binding<Int>) -> some View {
+    func numField(_ label: String, value: Binding<Int>, help: String? = nil) -> some View {
         HStack(spacing: 4) {
             Text(label).font(.caption)
+                .optionHelp(help)
             TextField("", value: value, format: .number)
                 .textFieldStyle(.roundedBorder)
                 .frame(width: 50)
         }
+        .optionHelp(help)
     }
 
-    func pathField(_ text: Binding<String>, prompt: String) -> some View {
+    func pathField(_ text: Binding<String>, prompt: String, help: String? = nil) -> some View {
         TextField(prompt, text: text)
             .textFieldStyle(.roundedBorder)
             .frame(minWidth: 150)
+            .optionHelp(help)
     }
 
-    func colorToggleRow(_ label: String, isOn: Binding<Bool>, color: Binding<Color>) -> some View {
+    func colorToggleRow(_ label: String, isOn: Binding<Bool>, color: Binding<Color>, help: String? = nil) -> some View {
         HStack {
-            Toggle(label, isOn: isOn)
+            optionToggle(label, isOn: isOn, help: help)
                 .frame(width: 140)
             if isOn.wrappedValue {
                 ColorPicker("", selection: color).labelsHidden()
             }
             Spacer()
         }
+        .optionHelp(help)
     }
 
     func tipRow(_ emoji: String, _ text: String) -> some View {
