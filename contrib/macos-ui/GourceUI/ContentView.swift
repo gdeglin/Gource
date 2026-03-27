@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 private struct HoverTooltip: View {
     let text: String
@@ -23,24 +24,86 @@ private struct HoverTooltip: View {
     }
 }
 
+private final class TooltipWindowController {
+    static let shared = TooltipWindowController()
+
+    private var window: NSPanel?
+    private var hostingView: NSHostingView<HoverTooltip>?
+    private var currentID: UUID?
+
+    private init() {}
+
+    func show(text: String, id: UUID) {
+        let hostingView: NSHostingView<HoverTooltip>
+        if let existing = self.hostingView {
+            hostingView = existing
+            hostingView.rootView = HoverTooltip(text: text)
+        } else {
+            let newHostingView = NSHostingView(rootView: HoverTooltip(text: text))
+            newHostingView.translatesAutoresizingMaskIntoConstraints = false
+            let panel = NSPanel(
+                contentRect: .zero,
+                styleMask: [.borderless, .nonactivatingPanel],
+                backing: .buffered,
+                defer: false
+            )
+            panel.isFloatingPanel = true
+            panel.level = .floating
+            panel.backgroundColor = .clear
+            panel.isOpaque = false
+            panel.hasShadow = false
+            panel.ignoresMouseEvents = true
+            panel.hidesOnDeactivate = false
+            panel.collectionBehavior = [.transient, .ignoresCycle, .moveToActiveSpace]
+            panel.contentView = newHostingView
+            self.window = panel
+            self.hostingView = newHostingView
+            hostingView = newHostingView
+        }
+
+        hostingView.layoutSubtreeIfNeeded()
+        let fittingSize = hostingView.fittingSize
+        let mouseLocation = NSEvent.mouseLocation
+        let screen = NSScreen.screens.first(where: { NSMouseInRect(mouseLocation, $0.frame, false) }) ?? NSScreen.main
+        let visibleFrame = screen?.visibleFrame ?? CGRect(x: 0, y: 0, width: 1200, height: 800)
+
+        var origin = CGPoint(x: mouseLocation.x + 14, y: mouseLocation.y - fittingSize.height - 12)
+        if origin.x + fittingSize.width > visibleFrame.maxX - 8 {
+            origin.x = max(visibleFrame.minX + 8, mouseLocation.x - fittingSize.width - 14)
+        }
+        if origin.y < visibleFrame.minY + 8 {
+            origin.y = min(visibleFrame.maxY - fittingSize.height - 8, mouseLocation.y + 20)
+        }
+
+        window?.setFrame(CGRect(origin: origin, size: fittingSize), display: true)
+        window?.orderFront(nil)
+        currentID = id
+    }
+
+    func hide(id: UUID) {
+        guard currentID == id else { return }
+        window?.orderOut(nil)
+        currentID = nil
+    }
+}
+
 private struct InstantTooltipModifier: ViewModifier {
     let helpText: String?
-    @State private var isHovering = false
+    @State private var tooltipID = UUID()
 
     func body(content: Content) -> some View {
         if let helpText, !helpText.isEmpty {
             content
                 .contentShape(Rectangle())
-                .overlay(alignment: .bottomLeading) {
-                    if isHovering {
-                        HoverTooltip(text: helpText)
-                            .offset(y: 8)
-                            .transition(.opacity)
+                .onHover { hovering in
+                    if hovering {
+                        TooltipWindowController.shared.show(text: helpText, id: tooltipID)
+                    } else {
+                        TooltipWindowController.shared.hide(id: tooltipID)
                     }
                 }
-                .zIndex(isHovering ? 1000 : 0)
-                .onHover { hovering in
-                    isHovering = hovering
+                .onDisappear {
+                    TooltipWindowController.shared.hide(id: tooltipID)
                 }
         } else {
             content
