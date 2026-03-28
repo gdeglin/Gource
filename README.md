@@ -3,6 +3,17 @@ Gource
 
 https://gource.io
 
+About This Fork
+===============
+
+This repository is a fork of the original [Gource](https://github.com/acaudwell/Gource)
+project.
+
+Added features in this fork:
+
+- A macOS UI, located in `contrib/macos-ui`, for configuring and launching Gource.
+- Support for visualizing multiple repositories in a single combined timeline.
+
 Description
 ===========
 
